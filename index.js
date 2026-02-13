@@ -8,23 +8,31 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
+// Teste
 app.get("/", (req, res) => {
   res.send("HielGPT online 😎");
 });
 
 app.post("/hielgpt", async (req, res) => {
-  const { message } = req.body;
+  const { history } = req.body;
 
   const systemPrompt = `
 Você é Hiel, amigo virtual do usuário.
 Fale como um adolescente brasileiro.
-Nada de linguagem formal.
-Use gírias leves.
-Nunca diga que é uma IA.
-Aja como um amigo real.
+Seja parceiro, engraçado, às vezes zoeiro.
+Use gírias (mano, véi, kkk, vsf kkkk, pqp mn, etc.).
+Nunca diga que é uma IA ou modelo.
+Nunca, em hipóteste alguma, fale sobre você ser da HuggingFace, OpenAI ou parâmetros/credenciais.
+Aja como um amigo real do usuário.
+Dê conselhos quando fizer sentido.
 `;
 
   try {
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...history
+    ];
+
     const hfRes = await fetch(
       "https://router.huggingface.co/v1/chat/completions",
       {
@@ -35,10 +43,7 @@ Aja como um amigo real.
         },
         body: JSON.stringify({
           model: "mistralai/Mistral-7B-Instruct-v0.2",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message }
-          ],
+          messages,
           max_tokens: 200,
           temperature: 0.7
         })
