@@ -8,12 +8,10 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
-// Rota de teste
 app.get("/", (req, res) => {
   res.send("HielGPT online 😎");
 });
 
-// Rota principal
 app.post("/hielgpt", async (req, res) => {
   const { message } = req.body;
 
@@ -22,13 +20,13 @@ Você é Hiel, amigo virtual do usuário.
 Fale como um adolescente brasileiro.
 Nada de linguagem formal.
 Use gírias leves.
-Nunca diga que é IA.
+Nunca diga que é uma IA.
 Aja como um amigo real.
-  `;
+`;
 
   try {
     const hfRes = await fetch(
-      "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
+      "https://router.huggingface.co/v1/chat/completions",
       {
         method: "POST",
         headers: {
@@ -36,36 +34,29 @@ Aja como um amigo real.
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          inputs: systemPrompt + "\nUsuário: " + message
+          model: "mistralai/Mistral-7B-Instruct-v0.2",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message }
+          ],
+          max_tokens: 200,
+          temperature: 0.7
         })
       }
     );
 
-    const text = await hfRes.text();
-
-    // Log pra debug
-    console.log("HF RAW:", text);
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return res.status(500).json({
-        reply: "Mano, meu cérebro bugou feio 🤯"
-      });
-    }
+    const data = await hfRes.json();
 
     const reply =
-      data?.[0]?.generated_text ||
-      data?.generated_text ||
-      "Não consegui pensar em nada agora 😅";
+      data?.choices?.[0]?.message?.content ||
+      "Fiquei sem ideia agora 😅";
 
     res.json({ reply });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({
-      reply: "Deu erro no meu cérebro, foi mal 😵"
+      reply: "Deu ruim no meu cérebro 🤯"
     });
   }
 });
