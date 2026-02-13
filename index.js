@@ -4,16 +4,24 @@ import cors from "cors";
 
 const app = express();
 
-// Middlewares
-app.use(cors());              // libera acesso do front
-app.use(express.json());      // permite JSON no body
+// CORS CONFIGURADO CORRETAMENTE
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
-// Rota de teste (abre no navegador)
+// Permite preflight manualmente (ESSENCIAL)
+app.options("*", cors());
+
+app.use(express.json());
+
+// Rota teste
 app.get("/", (req, res) => {
   res.send("HielGPT Backend Online 🚀");
 });
 
-// Rota principal da IA
+// Rota da IA
 app.post("/hielgpt", async (req, res) => {
   try {
     const userMsg = req.body.message;
@@ -34,7 +42,6 @@ app.post("/hielgpt", async (req, res) => {
           inputs: 
 `Você é HielGPT, um alter ego filosófico, irônico e melancólico.
 Você fala como um amigo humano.
-Nunca responda de forma robótica.
 
 Usuário: ${userMsg}
 HielGPT:` 
@@ -44,8 +51,7 @@ HielGPT:`
 
     const data = await response.json();
 
-    // Segurança extra
-    if (!data || !data[0] || !data[0].generated_text) {
+    if (!data || !data[0]?.generated_text) {
       return res.status(500).json({ error: "Resposta inválida da IA" });
     }
 
@@ -59,7 +65,7 @@ HielGPT:`
   }
 });
 
-// Porta dinâmica (Render)
+// Porta do Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("HielGPT rodando na porta " + PORT);
