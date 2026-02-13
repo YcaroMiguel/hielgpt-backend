@@ -1,32 +1,34 @@
 import express from "express";
 import fetch from "node-fetch";
+import cors from "cors";
 
 const app = express();
-
-/* ===== CORS MANUAL ===== */
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-  next();
-});
-
+app.use(cors());
 app.use(express.json());
 
+const PORT = process.env.PORT || 10000;
+
+// Rota de teste
 app.get("/", (req, res) => {
-  res.send("HielGPT Backend Online 🚀");
+  res.send("HielGPT online 😎");
 });
 
+// Rota principal
 app.post("/hielgpt", async (req, res) => {
-  try {
-    const userMsg = req.body.message;
+  const { message } = req.body;
 
-    const hfResponse = await fetch(
-      "https://router.huggingface.co/hf-inference/models/google/flan-t5-base",
+  const systemPrompt = `
+Você é Hiel, amigo virtual do usuário.
+Fale como um adolescente brasileiro.
+Nada de linguagem formal.
+Use gírias leves.
+Nunca diga que é IA.
+Aja como um amigo real.
+  `;
+
+  try {
+    const hfRes = await fetch(
+      "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
       {
         method: "POST",
         headers: {
@@ -34,28 +36,40 @@ app.post("/hielgpt", async (req, res) => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          inputs: userMsg
+          inputs: systemPrompt + "\nUsuário: " + message
         })
       }
     );
 
-    const data = await hfResponse.json();
-    console.log("HF RESPONSE:", data);
+    const text = await hfRes.text();
 
-    if (data.error) {
-      return res.status(500).json({ error: data.error });
+    // Log pra debug
+    console.log("HF RAW:", text);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return res.status(500).json({
+        reply: "Mano, meu cérebro bugou feio 🤯"
+      });
     }
 
-    const reply = data[0].generated_text;
+    const reply =
+      data?.[0]?.generated_text ||
+      data?.generated_text ||
+      "Não consegui pensar em nada agora 😅";
+
     res.json({ reply });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erro no cérebro do HielGPT" });
+    res.status(500).json({
+      reply: "Deu erro no meu cérebro, foi mal 😵"
+    });
   }
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("HielGPT rodando na porta " + PORT);
+  console.log("HielGPT rodando na porta", PORT);
 });
