@@ -6,20 +6,36 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const HF_TOKEN = process.env.HF_TOKEN;
-const MODEL = "mistralai/Mistral-7B-Instruct-v0.2";
+const PORT = process.env.PORT || 10000;
+const HF_TOKEN = process.env.HF_TOKEN; // coloque no Render (env var)
+
+app.get("/", (req, res) => {
+  res.send("HielGPT backend online.");
+});
 
 app.post("/hielgpt", async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
+    let { message, history } = req.body;
 
-    const messages = [
-      ...history,
-      { role: "user", content: message }
-    ];
+    // Garantia absoluta
+    if (!Array.isArray(history)) {
+      history = [];
+    }
+
+    // Monta o contexto
+    let prompt = "";
+    for (const msg of history) {
+      if (msg.role === "user") {
+        prompt += `Usuário: ${msg.content}\n`;
+      } else {
+        prompt += `Hiel: ${msg.content}\n`;
+      }
+    }
+
+    prompt += `Usuário: ${message}\nHiel:`;
 
     const response = await fetch(
-      `https://router.huggingface.co/hf-inference/models/${MODEL}`,
+      "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2",
       {
         method: "POST",
         headers: {
@@ -27,32 +43,38 @@ app.post("/hielgpt", async (req, res) => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          inputs: messages,
+          inputs: prompt,
           parameters: {
-            max_new_tokens: 200,
-            temperature: 0.7
+            max_new_tokens: 150,
+            temperature: 0.7,
+            return_full_text: false
           }
         })
       }
     );
 
-    const data = await response.json();
+    const rawText = await response.text();
+
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.log("HF RAW:", rawText);
+      return res.json({ reply: "Erro ao falar com a IA." });
+    }
 
     const reply =
-      data?.generated_text?.slice(-1)[0]?.content ||
-      "Deu ruim aqui no meu cérebro 😵";
+      data?.[0]?.generated_text ||
+      "Não consegui pensar em uma resposta agora.";
 
     res.json({ reply });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erro no cérebro do HielGPT" });
+    res.status(500).json({ reply: "Erro interno no cérebro do Hiel." });
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("HielGPT backend online.");
-});
-
-app.listen(10000, () => {
-  console.log("HielGPT rodando na porta 10000");
+app.listen(PORT, () => {
+  console.log("HielGPT rodando na porta", PORT);
 });
