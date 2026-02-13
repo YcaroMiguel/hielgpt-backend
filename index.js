@@ -22,7 +22,7 @@ app.get("/", (req, res) => {
 });
 
 // Rota da IA
-app.post("/hielgpt", async (req, res) => {
+app.post("/", async (req, res) => {
   try {
     const userMsg = req.body.message;
 
@@ -40,7 +40,7 @@ app.post("/hielgpt", async (req, res) => {
         },
         body: JSON.stringify({
           inputs: 
-`Você é HielGPT, um alter ego filosófico, irônico e melancólico.
+`Você é HielGPT.
 Você fala como um amigo humano.
 
 Usuário: ${userMsg}
