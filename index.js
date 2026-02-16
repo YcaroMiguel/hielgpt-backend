@@ -1,6 +1,7 @@
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
+// Se estiver no Node 18+, delete a linha do node-fetch. Se for inferior, mantenha-a.
+import fetch from "node-fetch"; 
 
 const app = express();
 app.use(cors());
@@ -9,7 +10,6 @@ app.use(express.json());
 const PORT = process.env.PORT || 10000;
 const HF_TOKEN = process.env.HF_TOKEN;
 
-// Rota de teste
 app.get("/", (req, res) => {
   res.send("HielGPT backend online.");
 });
@@ -18,30 +18,26 @@ app.post("/hielgpt", async (req, res) => {
   try {
     let { message, history } = req.body;
 
-    // Proteção total
     if (typeof message !== "string") {
-      return res.json({ reply: "Mensagem inválida." });
+      return res.status(400).json({ reply: "Mensagem inválida." });
     }
 
     if (!Array.isArray(history)) {
       history = [];
     }
 
-    // Monta prompt com memória
-    let prompt = "";
+    // Melhora no Prompt para modelos Mistral Instruct
+    let prompt = "<s>";
     for (const msg of history) {
       if (msg.role === "user") {
-        prompt += `Usuário: ${msg.content}\n`;
+        prompt += `[INST] ${msg.content} [/INST]`;
       } else if (msg.role === "bot") {
-        prompt += `Hiel: ${msg.content}\n`;
+        prompt += ` ${msg.content} </s>`;
       }
     }
+    prompt += `[INST] ${message} [/INST]`;
 
-    prompt += `Usuário: ${message}\nHiel:`;
-
-    const url = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2";
-    console.log("Chamando HF em:", url);
-    console.log("Token ativo:", !!HF_TOKEN);
+    const url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
 
     const response = await fetch(url, {
       method: "POST",
@@ -52,35 +48,34 @@ app.post("/hielgpt", async (req, res) => {
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_new_tokens: 150,
+          max_new_tokens: 250,
           temperature: 0.7,
           return_full_text: false
         }
       })
     });
 
-    const raw = await response.text();
+    const data = await response.json();
 
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      console.log("HF RAW:", raw);
-      return res.json({ reply: "Erro ao acessar a IA no momento." });
+    // Verifica se a API retornou erro (ex: modelo carregando)
+    if (!response.ok) {
+      console.error("Erro HF:", data);
+      return res.status(response.status).json({ 
+        reply: data.error || "A IA está descansando agora. Tente em breve." 
+      });
     }
 
-    const reply =
-      data?.[0]?.generated_text ||
-      "Não consegui pensar em uma resposta agora.";
+    // O retorno do HF costuma ser um array: [{ generated_text: "..." }]
+    const reply = data[0]?.generated_text?.trim() || "Não consegui pensar em uma resposta.";
 
     res.json({ reply });
 
   } catch (err) {
-    console.error(err);
+    console.error("ERRO CRÍTICO:", err);
     res.status(500).json({ reply: "Erro interno no cérebro do HielGPT." });
   }
 });
 
 app.listen(PORT, () => {
-  console.log("HielGPT rodando na porta", PORT);
+  console.log(`HielGPT rodando na porta ${PORT}`);
 });
